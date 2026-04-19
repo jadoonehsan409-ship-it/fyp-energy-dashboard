@@ -4,7 +4,7 @@ export default function DailyForecast() {
     const [expandedAccordion, setExpandedAccordion] = useState(false);
 
     return (
-
+        <div className="bg-cardbg p-6 rounded-xl border border-gray-800 mb-8 shadow-lg">
             {/* Header & Badges */}
             <div className="flex justify-between items-start mb-2">
                 <div>
