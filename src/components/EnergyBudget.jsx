@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function EnergyBudget() {
+    const [activeTab, setActiveTab] = useState('month');
+
     // Mock data for the daily consumption bar chart
     const barData = Array.from({ length: 20 }, (_, i) => ({
         day: i + 1,
@@ -27,9 +30,9 @@ export default function EnergyBudget() {
 
             {/* The 3 Timeline Tabs */}
             <div className="flex bg-[#0a0a0a] rounded-lg p-1 mb-6 border border-gray-800">
-                <button className="flex-1 bg-cardbg py-2 rounded-md text-sm font-medium text-white shadow">This Month</button>
-                <button className="flex-1 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-300 transition-colors">Last Month</button>
-                <button className="flex-1 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-300 transition-colors">All</button>
+                <button onClick={() => setActiveTab('month')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'month' ? 'bg-cardbg text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>This Month</button>
+                <button onClick={() => setActiveTab('last')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'last' ? 'bg-cardbg text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>Last Month</button>
+                <button onClick={() => setActiveTab('all')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-cardbg text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>All</button>
             </div>
 
             {/* Progress Bar Container */}

@@ -1,6 +1,9 @@
+import { useState } from 'react';
+
 export default function DailyForecast() {
+    const [expandedAccordion, setExpandedAccordion] = useState(false);
+
     return (
-        <div className="bg-cardbg p-6 rounded-xl border border-gray-800 mb-8 shadow-lg">
 
             {/* Header & Badges */}
             <div className="flex justify-between items-start mb-2">
@@ -105,13 +108,18 @@ export default function DailyForecast() {
 
             {/* Accordion Dropdown (Visual Only) */}
             <div className="border-t border-gray-800 pt-4 mt-2">
-                <button className="w-full flex justify-between items-center text-sm text-brandBlue hover:text-blue-400 transition-colors">
+                <button onClick={() => setExpandedAccordion(!expandedAccordion)} className="w-full flex justify-between items-center text-sm text-brandBlue hover:text-blue-400 transition-colors">
                     <span className="flex items-center gap-2">
                         <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-4" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 8h.01" /></svg>
                         How does this prediction work?
                     </span>
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={`transition-transform ${expandedAccordion ? 'rotate-180' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
                 </button>
+                {expandedAccordion && (
+                    <div className="mt-3 p-3 bg-[#0a0a0a] rounded-lg text-xs text-gray-400 border border-gray-800">
+                        <p>Our AI-powered forecasting algorithm uses historical consumption data, current usage patterns, weather data, and time-of-day factors to predict your energy consumption. The 7-day moving average smooths out daily fluctuations to provide a reliable baseline.</p>
+                    </div>
+                )}
             </div>
 
         </div>
