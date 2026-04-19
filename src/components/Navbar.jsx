@@ -10,14 +10,26 @@ export default function Navbar({ onLogout, alerts, onOpenSettings }) {
 
     useEffect(() => {
         const saved = localStorage.getItem('darkMode');
-        if (saved) setIsDarkMode(JSON.parse(saved));
+        const darkMode = saved ? JSON.parse(saved) : true;
+        setIsDarkMode(darkMode);
+        // Apply the saved theme on mount
+        if (!darkMode) {
+            document.documentElement.style.filter = 'invert(1) hue-rotate(180deg)';
+        } else {
+            document.documentElement.style.filter = 'invert(0)';
+        }
     }, []);
 
     const toggleDarkMode = () => {
         const newMode = !isDarkMode;
         setIsDarkMode(newMode);
         localStorage.setItem('darkMode', JSON.stringify(newMode));
-        document.documentElement.classList.toggle('dark');
+        // Toggle the actual theme by changing the CSS filter or opacity
+        if (newMode) {
+            document.documentElement.style.filter = 'invert(0)';
+        } else {
+            document.documentElement.style.filter = 'invert(1) hue-rotate(180deg)';
+        }
     };
 
     const clearAllAlerts = () => {
