@@ -1,116 +1,94 @@
-import { useState } from 'react';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useState, useEffect } from 'react';
 
-export default function EnergyBudget() {
-    const [activeTab, setActiveTab] = useState('month');
+export default function EnergyBudget({ dailyEnergyKwh }) {
+    // --- SETTINGS (You can adjust these based on your local tariff) ---
+    const UNIT_PRICE_SLAB_1 = 25; // Price if units < 100
+    const UNIT_PRICE_SLAB_2 = 35; // Price if units > 100
+    const MONTHLY_BUDGET_PKR = 5000;
 
-    // Mock data for the daily consumption bar chart
-    const barData = Array.from({ length: 20 }, (_, i) => ({
-        day: i + 1,
-        units: (Math.random() * 2 + 0.2).toFixed(2)
-    }));
+    const [stats, setStats] = useState({
+        currentBill: 0,
+        projectedUnits: 0,
+        savings: 0,
+        percentOfBudget: 0
+    });
+
+    useEffect(() => {
+        // 1. Calculate Current Bill for today
+        const pricePerUnit = dailyEnergyKwh > 3.3 ? UNIT_PRICE_SLAB_2 : UNIT_PRICE_SLAB_1;
+        const todayBill = dailyEnergyKwh * pricePerUnit;
+
+        // 2. Project for the Month (Simple linear projection)
+        // If you used X units in half a day, you'll likely use X*2*30 in a month
+        const projectedMonthlyUnits = dailyEnergyKwh * 30;
+        const projectedMonthlyBill = projectedMonthlyUnits * (projectedMonthlyUnits > 100 ? UNIT_PRICE_SLAB_2 : UNIT_PRICE_SLAB_1);
+
+        // 3. Calculate Savings (Compared to an unoptimized baseline)
+        const baselineBill = projectedMonthlyBill * 1.15; // Assuming 15% waste without AI
+        const potentialSavings = baselineBill - projectedMonthlyBill;
+
+        setStats({
+            currentBill: todayBill.toFixed(2),
+            projectedUnits: projectedMonthlyUnits.toFixed(1),
+            savings: potentialSavings.toFixed(0),
+            percentOfBudget: Math.min((projectedMonthlyBill / MONTHLY_BUDGET_PKR) * 100, 100).toFixed(1)
+        });
+    }, [dailyEnergyKwh]);
 
     return (
-        <div className="bg-cardbg p-6 rounded-xl border border-gray-800 mb-8 shadow-lg">
-
-            {/* Header & Title */}
-            <div className="flex justify-between items-center mb-2">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <svg width="20" height="20" fill="none" stroke="#eab308" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    Energy Budget & Cost
-                </h2>
-                <button className="text-xs text-gray-400 flex items-center gap-1 hover:text-white transition-colors">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>
-                    Settings
-                </button>
-            </div>
-            <p className="text-xs text-gray-500 mb-6">Track monthly usage, compare periods, and estimate your electricity bill</p>
-
-            {/* The 3 Timeline Tabs */}
-            <div className="flex bg-[#0a0a0a] rounded-lg p-1 mb-6 border border-gray-800">
-                <button onClick={() => setActiveTab('month')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'month' ? 'bg-cardbg text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>This Month</button>
-                <button onClick={() => setActiveTab('last')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'last' ? 'bg-cardbg text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>Last Month</button>
-                <button onClick={() => setActiveTab('all')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-cardbg text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>All</button>
-            </div>
-
-            {/* Progress Bar Container */}
-            <div className="mb-6">
-                <div className="flex justify-between text-xs mb-2">
-                    <span className="text-gray-300 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-brandBlue rounded-full shadow-[0_0_8px_rgba(14,165,233,0.5)]"></div>
-                        Current Budget Progress
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+            {/* Current Estimated Bill */}
+            <div className="bg-cardbg border border-gray-800 rounded-xl p-5 shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Today's Cost</h3>
+                    <span className="p-2 bg-green-500/10 rounded-lg text-green-500">
+                        Rs.
                     </span>
-                    <span className="text-white font-mono font-bold">12.50 / 30.0 Units</span>
                 </div>
-                <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                    <div className="bg-brandBlue h-1.5 rounded-full" style={{ width: '41%' }}></div>
+                <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-white">{stats.currentBill}</span>
+                    <span className="text-xs text-gray-500">PKR</span>
                 </div>
-                <div className="flex justify-between text-xs mt-2 text-gray-500">
-                    <span>0 Units</span>
-                    <span>30.0 Units</span>
+                <p className="text-[10px] text-gray-500 mt-2">Based on current unit price</p>
+            </div>
+
+            {/* Monthly Projection */}
+            <div className="bg-cardbg border border-gray-800 rounded-xl p-5 shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Monthly Forecast</h3>
+                    <span className="p-2 bg-brandBlue/10 rounded-lg text-brandBlue">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-white">{stats.projectedUnits}</span>
+                    <span className="text-xs text-gray-500">Units (Est.)</span>
+                </div>
+                <div className="w-full bg-gray-800 h-1.5 rounded-full mt-3 overflow-hidden">
+                    <div
+                        className={`h-full transition-all duration-1000 ${stats.percentOfBudget > 80 ? 'bg-red-500' : 'bg-brandBlue'}`}
+                        style={{ width: `${stats.percentOfBudget}%` }}
+                    ></div>
                 </div>
             </div>
 
-            {/* 3 Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-
-                {/* Card 1: This Month */}
-                <div className="p-5 rounded-lg border border-gray-800 bg-[#0a0a0a]">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-2">
-                        <svg width="16" height="16" fill="none" stroke="#0ea5e9" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                        This Month
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between"><span className="text-gray-500">Total Used</span><span className="text-white font-mono">12.50 Units</span></div>
-                        <div className="flex justify-between"><span className="text-gray-500">Peak Power</span><span className="text-white font-mono">138.2 W</span></div>
-                        <div className="flex justify-between"><span className="text-gray-500">Avg Power</span><span className="text-white font-mono">66.2 W</span></div>
-                    </div>
+            {/* AI Savings */}
+            <div className="bg-cardbg border border-gray-800 rounded-xl p-5 shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-10">
+                    <svg width="60" height="60" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" /></svg>
                 </div>
-
-                {/* Card 2: Last Month (Empty State) */}
-                <div className="p-5 rounded-lg border border-gray-800 bg-[#0a0a0a] flex flex-col justify-center items-center text-gray-500">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className="mb-2 opacity-30"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    <span className="text-xs">No data for last month</span>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">AI Optimization Savings</h3>
+                    <span className="px-2 py-1 bg-purple-500/20 rounded text-[10px] text-purple-400 font-bold">PRO</span>
                 </div>
-
-                {/* Card 3: Monthly Cost */}
-                <div className="p-5 rounded-lg border border-gray-800 bg-[#0a0a0a] flex flex-col justify-between">
-                    <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                        <svg width="16" height="16" fill="none" stroke="#22c55e" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M12 12h.01M17 12h.01M7 12h.01"></path></svg>
-                        Monthly Cost
-                    </h3>
-                    <div className="mt-4">
-                        <p className="text-xs text-gray-500 mb-1">This month so far</p>
-                        <p className="text-3xl font-bold text-brandGreen font-mono">PKR 450</p>
-                    </div>
+                <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-white">Rs. {stats.savings}</span>
                 </div>
-
+                <p className="text-[10px] text-green-400 mt-2 flex items-center gap-1">
+                    <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z" /></svg>
+                    15% more efficient than baseline
+                </p>
             </div>
-
-            {/* Daily Consumption Bar Chart */}
-            <div>
-                <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-2">
-                    <svg width="14" height="14" fill="none" stroke="#a855f7" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                    Daily Consumption
-                </h3>
-                <div className="w-full h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={barData}>
-                            <XAxis dataKey="day" stroke="#525252" fontSize={10} tickLine={false} axisLine={false} />
-                            <Tooltip
-                                cursor={{ fill: '#262626' }}
-                                contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#262626', borderRadius: '8px', color: '#fff' }}
-                                itemStyle={{ color: '#d4d4d8', fontWeight: 'bold' }}
-                            />
-                            {/* The bars themselves. White when active/hovered, dark gray normally */}
-                            <Bar dataKey="units" fill="#3f3f46" radius={[4, 4, 0, 0]} activeBar={{ fill: '#f4f4f5' }} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
         </div>
     );
 }

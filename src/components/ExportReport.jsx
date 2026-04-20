@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
 export default function ExportReport({ targetId, filename }) {
@@ -11,22 +11,25 @@ export default function ExportReport({ targetId, filename }) {
 
         if (element) {
             try {
-                // Take a "screenshot" of the dashboard
-                const canvas = await html2canvas(element, {
-                    scale: 2, // Makes the PDF high-resolution
-                    backgroundColor: '#000000', // Matches your dark theme
-                    useCORS: true // Helps load external SVG icons properly
+                // toPng handles modern CSS like 'oklch' perfectly
+                const dataUrl = await toPng(element, {
+                    quality: 1.0,
+                    pixelRatio: 2, // Keeps the PDF high-resolution
+                    backgroundColor: '#0a0a0a', // Matches your dashboard background
+                    style: {
+                        // This prevents the graphs from getting squeezed during capture
+                        transform: 'scale(1)',
+                        transformOrigin: 'top left'
+                    }
                 });
-
-                const imgData = canvas.toDataURL('image/png');
 
                 // Create a new PDF document (A4 size)
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                const pdfHeight = (element.offsetHeight * pdfWidth) / element.offsetWidth;
 
                 // Add the image to the PDF and download it
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
                 pdf.save(`${filename}-${new Date().toLocaleDateString()}.pdf`);
             } catch (error) {
                 console.error("Failed to generate PDF", error);

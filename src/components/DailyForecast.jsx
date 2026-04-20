@@ -1,127 +1,161 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import Papa from 'papaparse';
 
 export default function DailyForecast() {
-    const [expandedAccordion, setExpandedAccordion] = useState(false);
+    // ---> PASTE YOUR NEW AI_FORECAST CSV LINK HERE <---
+    const AI_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-6G97-09OKa0ogiNKnMQIKx6-caMw404tz1eAr95HV9yRzwT51_dA5toc7dF3shJdzporH5p2z6sf/pub?gid=51074428&single=true&output=csv";
+
+    const [aiForecastData, setAiForecastData] = useState([]);
+    const [totalPredictedKwh, setTotalPredictedKwh] = useState("0.00");
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAIData = () => {
+            Papa.parse(`${AI_SHEET_CSV_URL}&t=${new Date().getTime()}`, {
+                download: true,
+                header: true,
+                dynamicTyping: true,
+                complete: (results) => {
+                    const data = results.data;
+                    if (data && data.length > 0) {
+                        let totalEnergyWh = 0;
+                        let dynamicLoads = {};
+
+                        // Calculate total energy and individual appliance energy
+                        data.forEach(row => {
+                            if (row.Total_Predicted_Wh) {
+                                totalEnergyWh += row.Total_Predicted_Wh;
+                            }
+
+                            // Find all columns that end with '_Predicted_Wh'
+                            Object.keys(row).forEach(key => {
+                                if (key.includes('_Predicted_Wh') && key !== 'Total_Predicted_Wh') {
+                                    // Clean up the name for the dashboard (e.g., "Refrigerator_ACTIVE_Predicted_Wh" -> "Refrigerator")
+                                    let cleanName = key.replace('_Predicted_Wh', '').replace('_ACTIVE', '').replace('_WASH', '').replace('_', ' ');
+                                    if (!dynamicLoads[cleanName]) dynamicLoads[cleanName] = 0;
+                                    dynamicLoads[cleanName] += (row[key] || 0);
+                                }
+                            });
+                        });
+
+                        setTotalPredictedKwh((totalEnergyWh / 1000).toFixed(2));
+
+                        // Format data perfectly for the Recharts PieChart
+                        const colors = ['#0ea5e9', '#eab308', '#22c55e', '#ef4444', '#a855f7', '#f97316'];
+                        let pieData = [];
+                        let colorIndex = 0;
+
+                        for (const [key, value] of Object.entries(dynamicLoads)) {
+                            if (value > 50) { // Only show appliances that actually use significant power
+                                pieData.push({
+                                    name: key,
+                                    value: parseFloat(((value / totalEnergyWh) * 100).toFixed(1)), // Percentage
+                                    rawKwh: (value / 1000).toFixed(2), // Actual kWh
+                                    color: colors[colorIndex % colors.length]
+                                });
+                                colorIndex++;
+                            }
+                        }
+
+                        // Sort so the biggest slice is first
+                        pieData.sort((a, b) => b.value - a.value);
+                        setAiForecastData(pieData);
+                        setIsLoading(false);
+                    }
+                }
+            });
+        };
+
+        fetchAIData();
+        // Fetch new AI predictions every 1 hour (3600000 ms)
+        const interval = setInterval(fetchAIData, 3600000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
-        <div className="bg-cardbg p-6 rounded-xl border border-gray-800 mb-8 shadow-lg">
-            {/* Header & Badges */}
-            <div className="flex justify-between items-start mb-2">
+        <div className="bg-cardbg border border-gray-800 rounded-xl p-6 mb-8 shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-brandBlue/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+
+            <div className="flex justify-between items-start mb-6 relative z-10">
                 <div>
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                         <svg width="20" height="20" fill="none" stroke="#a855f7" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                         </svg>
-                        Daily Energy Forecast
+                        AI Appliance Forecasting
                     </h2>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500">Based on 0-day moving average •</span>
-                        <span className="text-xs text-red-500 flex items-center gap-1 font-medium">
-                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
-                            Low Confidence
-                        </span>
-                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Predicted consumption breakdown for the next 48 hours</p>
                 </div>
-                <div className="px-2 py-1 bg-[#0a0a0a] border border-gray-800 rounded text-xs text-gray-400 flex items-center gap-1 font-mono">
-                    <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
-                    7-Day Moving Avg
+
+                <div className="text-right">
+                    <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mb-1">Total Predicted</p>
+                    <p className="text-2xl font-bold text-white">
+                        {isLoading ? "..." : totalPredictedKwh} <span className="text-sm text-gray-500 font-normal">kWh</span>
+                    </p>
                 </div>
             </div>
 
-            {/* 3 Metric Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
-
-                {/* Card 1: Expected */}
-                <div className="p-4 rounded-lg bg-[#0a0a0a] border border-gray-800">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center">
-                            <div className="w-2 h-2 rounded-full bg-brandBlue shadow-[0_0_8px_rgba(14,165,233,0.8)]"></div>
+            <div className="flex flex-col lg:flex-row items-center gap-8 relative z-10">
+                {/* The AI Pie Chart */}
+                <div className="w-full lg:w-1/2 h-[250px] flex items-center justify-center">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-4 border-brandBlue border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-sm text-gray-500">Loading AI Data...</p>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-500">Predicted (Daily)</p>
-                            <p className="text-sm font-semibold text-gray-300">Expected Units</p>
-                        </div>
-                    </div>
-                    <p className="text-2xl font-mono font-bold text-white mt-1">0.000 <span className="text-sm text-gray-500 font-sans">Units</span></p>
-                    <p className="text-xs text-gray-500 mt-1">≈ PKR 0.0/day</p>
+                    ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={aiForecastData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={90}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                    stroke="none"
+                                >
+                                    {aiForecastData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#1f2937', borderRadius: '8px' }}
+                                    itemStyle={{ color: '#fff', fontSize: '12px' }}
+                                    formatter={(value, name, props) => [`${value}% (${props.payload.rawKwh} kWh)`, 'Predicted']}
+                                />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#9ca3af' }} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    )}
                 </div>
 
-                {/* Card 2: Actual */}
-                <div className="p-4 rounded-lg bg-[#0a0a0a] border border-gray-800">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 rounded-full bg-green-500/10 flex items-center justify-center">
-                            <svg width="12" height="12" fill="none" stroke="#22c55e" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                {/* AI Insights & Alerts Panel */}
+                <div className="w-full lg:w-1/2 space-y-4">
+                    <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                            <h3 className="text-sm font-bold text-white">Slab Warning</h3>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-500">Today So Far</p>
-                            <p className="text-sm font-semibold text-gray-300">Actual Units</p>
-                        </div>
+                        <p className="text-xs text-gray-400 leading-relaxed">
+                            Based on the AI forecast, your top consumer will be the <span className="text-brandBlue font-medium">{aiForecastData[0]?.name || "main load"}</span>. Heavy usage over the next 48 hours increases the risk of crossing your monthly utility slab limit.
+                        </p>
                     </div>
-                    <p className="text-2xl font-mono font-bold text-white mt-1">0.000 <span className="text-sm text-gray-500 font-sans">Units</span></p>
-                    <p className="text-xs text-gray-500 mt-1">≈ PKR 0.0 so far</p>
-                </div>
 
-                {/* Card 3: Status */}
-                <div className="p-4 rounded-lg bg-[#0a0a0a] border border-gray-800">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 rounded-full bg-green-500/10 flex items-center justify-center">
-                            <svg width="12" height="12" fill="none" stroke="#22c55e" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 11.08V12a10 10 0 11-5.93-9.14" /><path strokeLinecap="round" strokeLinejoin="round" d="M22 4L12 14.01l-3-3" /></svg>
+                    <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="flex h-2 w-2 rounded-full bg-green-500"></span>
+                            <h3 className="text-sm font-bold text-white">AI Suggestion</h3>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-500">vs Expected</p>
-                            <p className="text-sm font-semibold text-gray-300">Status</p>
-                        </div>
+                        <p className="text-xs text-gray-400 leading-relaxed">
+                            Consider scheduling the <span className="text-purple-500 font-medium">{aiForecastData[1]?.name || "secondary load"}</span> during off-peak hours (10:00 PM - 6:00 AM) to optimize your tariff rate and reduce grid stress.
+                        </p>
                     </div>
-                    <p className="text-2xl font-bold text-brandGreen mt-1">0.0%</p>
-                    <p className="text-xs text-gray-500 mt-1">Within normal range</p>
                 </div>
 
             </div>
-
-            {/* Progress Bar Container */}
-            <div className="mb-5">
-                <div className="flex justify-between text-xs mb-2">
-                    <span className="text-gray-400 flex items-center gap-1">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" /></svg>
-                        Day Progress (15.8h / 24h)
-                    </span>
-                    <span className="text-gray-500">Expected at this time: 0.000 Units</span>
-                </div>
-                <div className="w-full bg-gray-800 rounded-full h-1.5 flex overflow-hidden">
-                    {/* Blue filled part */}
-                    <div className="bg-brandBlue h-1.5" style={{ width: '65%' }}></div>
-                </div>
-                <div className="flex justify-between text-[10px] text-gray-600 mt-2 font-mono uppercase">
-                    <span>12 AM</span>
-                    <span>6 AM</span>
-                    <span>12 PM</span>
-                    <span>6 PM</span>
-                    <span>12 AM</span>
-                </div>
-            </div>
-
-            {/* Voltage Safety Alert Box */}
-            <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3 flex items-center gap-3 mb-4">
-                <svg width="16" height="16" fill="none" stroke="#22c55e" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 11.08V12a10 10 0 11-5.93-9.14" /><path strokeLinecap="round" strokeLinejoin="round" d="M22 4L12 14.01l-3-3" /></svg>
-                <span className="text-sm text-gray-300"><span className="text-white font-medium">Voltage Normal:</span> 231.0V (safe range: 190-245V)</span>
-            </div>
-
-            {/* Accordion Dropdown (Visual Only) */}
-            <div className="border-t border-gray-800 pt-4 mt-2">
-                <button onClick={() => setExpandedAccordion(!expandedAccordion)} className="w-full flex justify-between items-center text-sm text-brandBlue hover:text-blue-400 transition-colors">
-                    <span className="flex items-center gap-2">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-4" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 8h.01" /></svg>
-                        How does this prediction work?
-                    </span>
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={`transition-transform ${expandedAccordion ? 'rotate-180' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-                </button>
-                {expandedAccordion && (
-                    <div className="mt-3 p-3 bg-[#0a0a0a] rounded-lg text-xs text-gray-400 border border-gray-800">
-                        <p>Our AI-powered forecasting algorithm uses historical consumption data, current usage patterns, weather data, and time-of-day factors to predict your energy consumption. The 7-day moving average smooths out daily fluctuations to provide a reliable baseline.</p>
-                    </div>
-                )}
-            </div>
-
         </div>
     );
 }
